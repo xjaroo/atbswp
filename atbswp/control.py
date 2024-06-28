@@ -400,11 +400,19 @@ class PlayCtrl:
     def play(self, capture, toggle_button):
         """Play the loaded capture."""
         toggle_value = True
+        def on_press(key):
+            if key == keyboard.Key.esc:
+                return False  # Stop listener
+    
+        listener = keyboard.Listener(on_press=on_press)
+        listener.start()
+
         for line in capture:
-            if self.play_thread.ended():
-                return
-            print(line)
+            if self.play_thread.ended()  or not listener.running:
+                return          
             exec(line)
+        
+        listener.stop()
 
         if self.count <= 0 and not self.infinite:
             toggle_value = False
