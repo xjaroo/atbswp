@@ -397,6 +397,15 @@ class PlayCtrl:
         self.count_was_updated = False
         self.ThreadEndEvent, self.EVT_THREAD_END = NE.NewEvent()
 
+    def stop_play(self, toggle_button):
+        toggle_value = False
+        event = self.ThreadEndEvent(
+            count=self.count, toggle_value=toggle_value)
+        wx.PostEvent(toggle_button.Parent, event)
+        btn_event = wx.CommandEvent(wx.wxEVT_TOGGLEBUTTON)
+        btn_event.EventObject = toggle_button
+        self.action(btn_event)
+
     def play(self, capture, toggle_button):
         """Play the loaded capture."""
         toggle_value = True
@@ -409,20 +418,23 @@ class PlayCtrl:
 
         for line in capture:
             if self.play_thread.ended()  or not listener.running:
-                return          
+                self.stop_play(toggle_button)
+                return     
+            print(line)     
             exec(line)
         
         listener.stop()
 
         if self.count <= 0 and not self.infinite:
             toggle_value = False
-        event = self.ThreadEndEvent(
-            count=self.count, toggle_value=toggle_value)
-        wx.PostEvent(toggle_button.Parent, event)
+        self.stop_play(toggle_button)
 
-        btn_event = wx.CommandEvent(wx.wxEVT_TOGGLEBUTTON)
-        btn_event.EventObject = toggle_button
-        self.action(btn_event)
+    def close_all_threads(self):
+        if hasattr(self, 'play_thread') and self.play_thread and self.play_thread.is_alive():
+            self.stop_event.set()
+            self.play_thread.join(timeout=2)
+            if self.play_thread.is_alive():
+                print("Warning: Thread did not stop in time")
 
     def action(self, event):
         """Replay a `count` number of time."""
@@ -430,6 +442,7 @@ class PlayCtrl:
         toggle_button.Parent.panel.SetFocus()
         self.infinite = settings.CONFIG.getboolean(
             'DEFAULT', 'Infinite Playback')
+        print(TMP_PATH)
         if toggle_button.Value:
             if not self.count_was_updated:
                 self.count = settings.CONFIG.getint('DEFAULT', 'Repeat Count')
@@ -444,10 +457,13 @@ class PlayCtrl:
                 capture = f.readlines()
             if self.count > 0 or self.infinite:
                 self.count = self.count - 1 if not self.infinite else self.count
-                self.play_thread = PlayThread()
-                self.play_thread.daemon = True
+                
+                self.close_all_threads()
+                
+                # Create and start new thread
                 self.play_thread = PlayThread(target=self.play,
-                                              args=(capture, toggle_button,))
+                                            args=(capture, toggle_button,))
+                self.play_thread.daemon = True
                 self.play_thread.start()
         else:
             self.play_thread.end()
