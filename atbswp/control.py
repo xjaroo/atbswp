@@ -38,6 +38,8 @@ from custom_widgets import SliderDialog
 import wx
 import wx.adv
 import wx.lib.newevent as NE
+import PyInstaller.__main__
+import tempfile
 
 
 TMP_PATH = os.path.join(tempfile.gettempdir(),
@@ -401,6 +403,7 @@ class PlayCtrl:
         for line in capture:
             if self.play_thread.ended():
                 return
+            print(line)
             exec(line)
 
         if self.count <= 0 and not self.infinite:
@@ -445,36 +448,51 @@ class PlayCtrl:
 
 
 class CompileCtrl:
-    """Produce an executable Python bytecode file."""
+    """Produce an executable file."""
 
     @staticmethod
     def compile(event):
         """Return a compiled version of the capture currently loaded.
 
-        For now it only returns a bytecode file.
-        #TODO: Return a proper executable for the platform currently
-        used **Without breaking the current workflow** which works both
-        in development mode and in production
+        This function creates an executable file for the platform currently used.
         """
         try:
-            bytecode_path = py_compile.compile(TMP_PATH)
+            # Assuming TMP_PATH is the path to your Python script
+            script_path = TMP_PATH
         except:
             wx.LogError("No capture loaded")
             return
-        default_file = "capture.pyc"
+
+        default_file = "capture.exe"
         event.EventObject.Parent.panel.SetFocus()
         with wx.FileDialog(parent=event.GetEventObject().Parent, message="Save capture executable",
-                           defaultDir=os.path.expanduser("~"), defaultFile=default_file, wildcard="*",
+                           defaultDir=os.path.expanduser("~"), defaultFile=default_file, 
+                           wildcard="Executable (*.exe)|*.exe", 
                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
 
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return     # the user changed their mind
-            pathname = fileDialog.GetPath()
-            try:
-                shutil.copy(bytecode_path, pathname)
-            except IOError:
-                wx.LogError(f"Cannot save current data in file {pathname}.")
 
+            pathname = fileDialog.GetPath()
+            
+            try:
+                # Create a temporary directory for PyInstaller output
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    PyInstaller.__main__.run([
+                        '--onefile',
+                        '--windowed',
+                        '--distpath', tmpdir,
+                        '--name', os.path.basename(pathname),
+                        script_path
+                    ])
+                    
+                    # Move the created executable to the chosen location
+                    created_exe = os.path.join(tmpdir, os.path.basename(pathname))
+                    os.replace(created_exe, pathname)
+                
+                wx.LogMessage(f"Executable saved successfully to {pathname}")
+            except Exception as e:
+                wx.LogError(f"Cannot create executable: {str(e)}")
 
 class SettingsCtrl:
     """Control class for the settings."""

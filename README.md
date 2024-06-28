@@ -51,7 +51,7 @@ Windows
 ```shell
 git clone https://github.com/rmpr/atbswp
 cd atbswp\
-pip install wxPython pyautogui pynput
+pip install wxPython pyautogui pynput pyinstaller
 python atbswp\atbswp.py
 ```
 
