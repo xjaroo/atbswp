@@ -140,7 +140,7 @@ class RecordCtrl:
         LOOKUP_SPECIAL_KEY[keyboard.Key.caps_lock] = 'capslock'
         LOOKUP_SPECIAL_KEY[keyboard.Key.cmd] = 'winleft'
         LOOKUP_SPECIAL_KEY[keyboard.Key.cmd_r] = 'winright'
-        LOOKUP_SPECIAL_KEY[keyboard.Key.ctrl] = 'ctrlleft'
+        LOOKUP_SPECIAL_KEY[keyboard.Key.ctrl_l] = 'ctrlleft'
         LOOKUP_SPECIAL_KEY[keyboard.Key.ctrl_r] = 'ctrlright'
         LOOKUP_SPECIAL_KEY[keyboard.Key.delete] = 'delete'
         LOOKUP_SPECIAL_KEY[keyboard.Key.down] = 'down'
