@@ -215,6 +215,7 @@ class RecordCtrl:
             if move + suffix in self._capture[-1]:
                 move = 'press'
                 self._capture[-1] = engine + "." + move + suffix
+            print(engine + "." + move + suffix)    
         self._capture.append(engine + "." + move + suffix)
 
     def on_move(self, x, y):
@@ -325,16 +326,17 @@ class RecordCtrl:
         dialog.Destroy()
         settings.CONFIG['DEFAULT']['Mouse Speed'] = str(new_value)
 
+    def close_all_threads(self):
+        if hasattr(self, 'play_thread') and self.play_thread and self.play_thread.is_alive():
+            # self.stop_event.set()
+            self.play_thread.end()
+            if self.play_thread.is_alive():
+                print("Warning: Thread did not stop in time")
+
     def action(self, event):
         """Triggered when the recording button is clicked on the GUI."""
         self.mouse_sensibility = settings.CONFIG.getint("DEFAULT", "Mouse Speed")
-        listener_mouse = mouse.Listener(
-            on_move=self.on_move,
-            on_click=self.on_click,
-            on_scroll=self.on_scroll)
-        listener_keyboard = keyboard.Listener(
-            on_press=self.on_press,
-            on_release=self.on_release)
+
 
         try:
             self.timer = settings.CONFIG.getint("DEFAULT", "Recording Timer")
@@ -353,14 +355,23 @@ class RecordCtrl:
                 self.wx_timer.Start(1000)
                 self.countdown_dialog.ShowModal()
 
-            listener_keyboard.start()
-            listener_mouse.start()
+            self.listener_mouse = mouse.Listener(
+                on_move=self.on_move,
+                on_click=self.on_click,
+                on_scroll=self.on_scroll)
+            self.listener_keyboard = keyboard.Listener(
+                on_press=self.on_press,
+                on_release=self.on_release)
+            self.listener_keyboard.start()
+            self.listener_mouse.start()
             self.last_time = time.perf_counter()
             self.recording = True
             recording_state = wx.Icon(os.path.join(
                 self.path, "img", "icon-recording.png"))
         else:
             self.recording = False
+            self.listener_mouse.stop()
+            self.listener_keyboard.stop()
             with open(TMP_PATH, 'w') as f:
                 # Remove the recording trigger event
                 self._capture.pop()
@@ -368,7 +379,10 @@ class RecordCtrl:
                 f.seek(0)
                 f.write("\n".join(self._capture))
                 f.truncate()
+
             self._capture = [self._header]
+
+                # self.listener_keyboard.join()
             recording_state = wx.Icon(
                 os.path.join(self.path, "img", "icon.png"))
         event.GetEventObject().GetParent().taskbar.SetIcon(recording_state)
@@ -416,25 +430,16 @@ class PlayCtrl:
         listener = keyboard.Listener(on_press=on_press)
         listener.start()
 
-        for line in capture:
-            if self.play_thread.ended()  or not listener.running:
-                self.stop_play(toggle_button)
-                return     
-            print(line)     
-            exec(line)
+        for line in capture:           
+            if not line.startswith("time.sleep"):
+                print(line)     
+                exec(line)
         
         listener.stop()
 
         if self.count <= 0 and not self.infinite:
             toggle_value = False
         self.stop_play(toggle_button)
-
-    def close_all_threads(self):
-        if hasattr(self, 'play_thread') and self.play_thread and self.play_thread.is_alive():
-            self.stop_event.set()
-            self.play_thread.join(timeout=2)
-            if self.play_thread.is_alive():
-                print("Warning: Thread did not stop in time")
 
     def action(self, event):
         """Replay a `count` number of time."""
@@ -457,9 +462,7 @@ class PlayCtrl:
                 capture = f.readlines()
             if self.count > 0 or self.infinite:
                 self.count = self.count - 1 if not self.infinite else self.count
-                
-                self.close_all_threads()
-                
+          
                 # Create and start new thread
                 self.play_thread = PlayThread(target=self.play,
                                             args=(capture, toggle_button,))
@@ -467,6 +470,7 @@ class PlayCtrl:
                 self.play_thread.start()
         else:
             self.play_thread.end()
+            # self.close_all_threads()
             self.count_was_updated = False
             settings.save_config()
 
