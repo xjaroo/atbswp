@@ -431,9 +431,9 @@ class PlayCtrl:
         listener.start()
 
         for line in capture:           
-            if not line.startswith("time.sleep"):
+            if not line.startswith("time.sleep") and not line.startswith("pyautogui.moveTo"):
                 print(line)     
-                exec(line)
+            exec(line)
         
         listener.stop()
 
